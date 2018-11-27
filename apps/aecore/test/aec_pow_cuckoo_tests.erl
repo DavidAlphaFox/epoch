@@ -154,5 +154,31 @@ kill_ospid_miner_test_() ->
      ]
     }.
 
+prebuilt_miner_test_() ->
+    {foreach,
+     fun() ->
+             ok = meck:new(aeu_env, [passthrough]),
+             ok = application:ensure_started(erlexec)
+     end,
+     fun(_) ->
+             ok = meck:unload(aeu_env)
+     end,
+     [{"User can configure to mine using a prebuilt miner",
+       fun() ->
+               aec_test_utils:mock_prebuilt_cuckoo_pow("dummyminer"),
+               Target = ?HIGHEST_TARGET_SCI,
+               Nonce = 1,
+               ?assertEqual({error, no_solution},
+                            ?TEST_MODULE:generate(?TEST_BIN, Target, Nonce))
+       end},
+      {"Err if absent prebuilt miner",
+       fun() ->
+               aec_test_utils:mock_prebuilt_cuckoo_pow("nonexistingminer"),
+               Target = ?HIGHEST_TARGET_SCI,
+               Nonce = 1,
+               ?assertEqual({error,{runtime,{execution_failed,{status,127}}}},
+                            ?TEST_MODULE:generate(?TEST_BIN, Target, Nonce))
+       end}
+     ]}.
 
 -endif.

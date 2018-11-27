@@ -108,17 +108,26 @@ get_options() ->
     {_, _, _, _} = aeu_env:get_env(aecore, aec_pow_cuckoo, ?DEFAULT_CUCKOO_ENV).
 
 get_miner_options() ->
-    case
-        {aeu_env:user_config([<<"mining">>, <<"cuckoo">>, <<"miner">>, <<"executable">>]),
-         aeu_env:user_config([<<"mining">>, <<"cuckoo">>, <<"miner">>, <<"extra_args">>])
-        }
-    of
-        {{ok, BinB}, {ok, ExtraArgsB}} ->
-            {binary_to_list(BinB), binary_to_list(ExtraArgsB)};
-        {undefined, undefined} -> %% Both or neither - enforced by user config schema.
-            {Bin, ExtraArgs, _, _} = get_options(),
-            {Bin, ExtraArgs}
-    end.
+    {ok, BinGroup} =
+        aeu_env:find_config(
+          [<<"mining">>, <<"cuckoo">>, <<"miner">>, <<"executable_group">>],
+          [user_config, schema_default]),
+    {MinerBin, MinerExtraArgs} =
+        case {aeu_env:user_config([<<"mining">>, <<"cuckoo">>, <<"miner">>, <<"executable">>]),
+              aeu_env:user_config([<<"mining">>, <<"cuckoo">>, <<"miner">>, <<"extra_args">>])}
+        of
+            {{ok, BinB}, {ok, ExtraArgsB}} ->
+                {binary_to_list(BinB), binary_to_list(ExtraArgsB)};
+            {undefined, undefined} -> %% Both or neither - enforced by user config schema.
+                {Bin, ExtraArgs, _, _} = get_options(),
+                {Bin, ExtraArgs}
+        end,
+    {miner_bin_dir(BinGroup), MinerBin, MinerExtraArgs}.
+
+miner_bin_dir(<<"aecuckoo">>) ->
+    aecuckoo:bin_dir();
+miner_bin_dir(<<"aecuckooprebuilt">>) ->
+    code:priv_dir(aecuckooprebuilt).
 
 get_edge_bits() ->
     case aeu_env:user_config([<<"mining">>, <<"cuckoo">>, <<"miner">>, <<"edge_bits">>]) of
@@ -168,23 +177,22 @@ generate_int(Hash, Nonce, Target) ->
                           {'ok', Solution :: pow_cuckoo_solution()} |
                           {'error', term()}.
 generate_int(Header, Target) ->
-    {MinerBin, MinerExtraArgs} = get_miner_options(),
+    {MinerBinDir, MinerBin, MinerExtraArgs} = get_miner_options(),
     EncodedHeader =
         case get_hex_encoded_header() of
             true -> hex_string(Header);
             false -> Header
         end,
-    generate_int(EncodedHeader, Target, MinerBin, MinerExtraArgs).
+    generate_int(EncodedHeader, Target, MinerBinDir, MinerBin, MinerExtraArgs).
 
-generate_int(Header, Target, MinerBin, MinerExtraArgs) ->
-    BinDir = aecuckoo:bin_dir(),
+generate_int(Header, Target, MinerBinDir, MinerBin, MinerExtraArgs) ->
     Cmd = lists:concat(["./", MinerBin,
                         " -h ", Header, " ", MinerExtraArgs]),
     ?info("Executing cmd: ~p", [Cmd]),
     Old = process_flag(trap_exit, true),
     DefaultOptions = [{stdout, self()},
                       {stderr, self()},
-                      {cd, BinDir},
+                      {cd, MinerBinDir},
                       {env, [{"SHELL", "/bin/sh"}]},
                       monitor],
     Options =
