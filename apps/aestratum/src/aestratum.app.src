@@ -1,0 +1,18 @@
+{application, aestratum,
+ [{description, "AE Stratum pool manager"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib,
+    lager,
+    ranch,
+    aetx
+   ]},
+  {mod,{aestratum_app,[]}},
+  {env,[]},
+  {modules, []},
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
