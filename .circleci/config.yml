@@ -531,7 +531,7 @@ jobs:
       - *install_os_deps
       - *install_otp
       - *install_libsodium
-      - *restore_machine_build_cache
+      #- *restore_machine_build_cache
       # keep user preparation step after cache restore because of perms
       - *prepare_ubuntu_user
       - *install_system_test_deps
@@ -542,7 +542,7 @@ jobs:
             sudo -u ubuntu -E -H make system-test
       - *collect_system_test_host_logs
       - *fail_notification_system_test
-      - *save_machine_build_cache
+      #- *save_machine_build_cache
       - store_test_results:
           path: *system_test_logs
       - store_artifacts:
