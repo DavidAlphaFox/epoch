@@ -212,7 +212,7 @@ msg_to_map(#{msg := #{<<"id">> := Id,
     ok = check_id(int, Id),
     %% Error is not checked here, the check is done in
     %% validate_rsp_params/2. It could be done here though,
-    %% but let's follow the behaviour of how it's donw with
+    %% but let's follow the behaviour of how it's done with
     %% the result.
     #{type => rsp, id => Id, error => Error};
 %% Msg validation errors
