@@ -1,0 +1,70 @@
+version: 1.2.0-{branch}-{build}
+
+branches:
+  only:
+    - PT-162549365-appveyor-config
+
+skip_tags: false
+skip_non_tags: false
+skip_branch_with_pr: false
+max_jobs: 1
+
+image: Visual Studio 2017
+
+clone_folder: C:\projects\build
+shallow_clone: false
+clone_depth: 5
+
+environment:
+  global:
+    APPVEYOR_RDP_PASSWORD:
+      secure: KN38AnwEZQ6wMS1ktlkybV0BEvTUgnvajLAPBJWdH8I4lttpWzTkLdU+XgLoG6X//t76IbiaIdEPFKEDzgoHyY2xGIxofmS2BDtQD+I9T3o=
+    MSYS2_ROOT: C:\msys64
+    VS_VERSION: 14.0
+    MSVC_VERSION: 14.16.27023
+    WIN_SDK_VERSION: 10.0.26624.0
+    OTP_PATH: C:\Program Files\erl
+    BUILD_PATH: /c/projects/build
+  matrix:
+    - OTP_VERSION: 20.1
+      ERTS_VERSION: 9.1
+      JOB: build
+      TEST: ct
+    - OTP_VERSION: 20.3
+      ERTS_VERSION: 9.3
+      JOB: build
+      TEST: ct
+    - OTP_VERSION: 21.2
+      ERTS_VERSION: 10.2
+      JOB: build
+      TEST: ct
+
+cache:
+  - '%MSYS2_ROOT%'                  # msys2
+  - '%LocalAppData%\NuGet\Cache'    # NuGet < v3
+  - '%LocalAppData%\NuGet\v3-cache' # NuGet v3
+  - '%OTP_PATH%9.1'                 # Erlang/OTP 20.1
+  - '%OTP_PATH%9.3'                 # Erlang/OTP 20.3
+  - '%OTP_PATH%10.2'                # Erlang/OTP 21.2
+
+platform: x64
+
+matrix:
+  fast_finish: true
+
+init:
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+install:
+  - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\install.bat'
+
+build_script:
+  - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\build.bat'
+
+test_script:
+  - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\test.bat'
+
+deploy: off
+
+on_finish:
+  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
