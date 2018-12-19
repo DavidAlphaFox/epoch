@@ -17,14 +17,21 @@ boolean_test_() ->
 comp_test_() ->
     make_calls(comps()).
 
+arith_test_() ->
+    make_calls(arith()).
+
+jumpif_test_() ->
+    make_calls(conditional_jump()).
+
 
 make_calls(ListOfCalls) ->
     Chain = setup_chain(),
     [{lists:flatten(io_lib:format("call(~p,~p,~p)->~p", [C,F,A,R])),
       fun() ->
               Call = make_call(C,F,A),
-              #{accumulator := Res} = aefa_fate:run(Call, Chain),
-              ?assertEqual(R, Res)
+              #{accumulator := Res,
+                trace := Trace} = aefa_fate:run(Call, Chain),
+              ?assertEqual({R, Trace}, {Res, Trace})
 
       end}
      || {C,F,A,R} <- ListOfCalls].
@@ -58,12 +65,31 @@ comps() ->
     , {<<"comp">>, <<"eq">>,  [4, 4], true}
     ].
 
+arith() ->
+    [ {<<"arith">>, F, A, R} ||
+        {F,A,R} <-
+            [ {<<"add">>, [1, 2], 3}
+            , {<<"sub">>, [3, 2], 1}
+            , {<<"mul">>, [2, 2], 4}
+            , {<<"div">>, [8, 4], 2}
+            , {<<"mod">>, [9, 4], 1}
+            ]
+    ].
+
+conditional_jump() ->
+    [ {<<"jumpif">>, F, A, R} ||
+        {F,A,R} <-
+            [ {<<"skip">>, [0, 42], 42}
+            , {<<"skip">>, [1, 42], 43}
+            ]
+    ].
+
 
 make_call(Contract, Function, Arguments) ->
     #{ contract  => Contract
      , function  => Function
      , arguments => Arguments}.
-    
+
 
 setup_chain() ->
     #{ contracts => setup_contracts()}.
@@ -159,10 +185,44 @@ setup_contracts() ->
               , [ {0, [ neq_a_a_a
                       , return]}]}
            ]
+     , <<"arith">> =>
+           [ {<<"add">>
+             , {[integer, integer], integer}
+             , [ {0, [ add_a_a_a
+                     , return]}]}
+           ,  {<<"sub">>
+              , {[integer, integer], integer}
+              , [ {0, [ sub_a_a_a
+                      , return]}]}
+           ,  {<<"mul">>
+              , {[integer, integer], integer}
+              , [ {0, [ mul_a_a_a
+                      , return]}]}
+           ,  {<<"div">>
+              , {[integer, integer], integer}
+              , [ {0, [ div_a_a_a
+                      , return]}]}
+           ,  {<<"mod">>
+              , {[integer, integer], integer}
+              , [ {0, [ mod_a_a_a
+                      , return]}]}
+           ,  {<<"pow">>
+              , {[integer, integer], integer}
+              , [ {0, [ pow_a_a_a
+                      , return]}]}
+           ]
+     , <<"jumpif">> =>
+           [ {<<"skip">>
+             , {[integer, integer], integer}
+             , [ {0, [ push_a_0
+                     , eq_a_a_a
+                     , {jumpif_a, 2}
+                     ]}
+               , {1, [ inc_a_1_a ]}
+               , {2, [ return]}
+               ]}
+           ]
 
        }.
 
-                       
 
-
-    

@@ -72,6 +72,12 @@ eval({tailcall_remote, Contract, Function}, EngineState) ->
 eval({jump, BB}, EngineState) ->
     {jump, BB, EngineState};
 
+eval({jumpif_a, BB}, EngineState) ->
+    case is_true_a(EngineState) of
+        {true, ES1} -> {jump, BB, ES1};
+        {false, ES1} -> {next, ES1}
+    end;
+
 %% ------------------------------------------------------
 %% Integer instructions
 %% ------------------------------------------------------
@@ -80,7 +86,21 @@ eval(push_a_0, EngineState) ->
 eval(inc_a_1_a, EngineState) ->
     {next, inc_acc(EngineState)};
 eval({add_a_i_a, X}, EngineState) ->
-    {next, add_acc(X, EngineState)};
+    {next, add_aia(X, EngineState)};
+eval(add_a_a_a, EngineState) ->
+    {next, add_aaa(EngineState)};
+eval(sub_a_a_a, EngineState) ->
+    {next, sub_aaa(EngineState)};
+eval(mul_a_a_a, EngineState) ->
+    {next, mul_aaa(EngineState)};
+eval(div_a_a_a, EngineState) ->
+    {next, div_aaa(EngineState)};
+eval(mod_a_a_a, EngineState) ->
+    {next, mod_aaa(EngineState)};
+eval(pow_a_a_a, EngineState) ->
+    {next, pow_aaa(EngineState)};
+
+
 
 %% ------------------------------------------------------
 %% Comparison instructions
@@ -112,6 +132,12 @@ eval(or_a_a_a, EngineState) ->
     {next, or_aaa(EngineState)};
 eval(not_a_a, EngineState) ->
     {next, not_aa(EngineState)};
+
+%% ------------------------------------------------------
+%% Integer instructions
+%% ------------------------------------------------------
+eval(dup, EngineState) ->
+    {next, dup(EngineState)};
 
 
 
@@ -213,8 +239,10 @@ check_arg_types([T|Ts], [A|As]) ->
     end.
 
 check_type(integer, I) when ?IS_FATE_INTEGER(I) -> true;
+check_type(boolean, B) when ?IS_FATE_BOOLEAN(B) -> true;
 check_type({list,_ET}, L) when ?IS_FATE_LIST(L) -> true; %% TODO: check element type
-check_type(T, V) -> {error, T, V}.
+check_type(_T, _V) -> false.
+
 
 
 jump(BB, ES) ->
@@ -233,11 +261,48 @@ push_int(I,
     ES#{ accumulator => I
        , accumulator_stack => [X|Stack]}.
 
-add_acc(X, #{accumulator := Y} = ES) when ?IS_FATE_INTEGER(X)
+add_aia(X, #{accumulator := Y} = ES) when ?IS_FATE_INTEGER(X)
                                           , ?IS_FATE_INTEGER(X) ->
     ES#{accumulator := ?MAKE_FATE_INTEGER(?FATE_INTEGER_VALUE(X)
                                           + ?FATE_INTEGER_VALUE(Y)
                                          )}.
+add_aaa(#{ accumulator := A
+         , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                      , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) + ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+sub_aaa(#{ accumulator := A
+         , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                      , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) - ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+mul_aaa(#{ accumulator := A
+         , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                      , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) * ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+div_aaa(#{ accumulator := A
+         , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                      , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) div ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+mod_aaa(#{ accumulator := A
+         , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                      , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) rem ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+pow_aaa(#{ accumulator := A
+         , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                      , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => math:pow(?FATE_INTEGER_VALUE(A), ?FATE_INTEGER_VALUE(B))
+       , accumulator_stack => Stack}.
+
+
 
 inc_acc(#{accumulator := X} = ES) when ?IS_FATE_INTEGER(X) ->
     ES#{accumulator := ?MAKE_FATE_INTEGER(?FATE_INTEGER_VALUE(X)+1)}.
@@ -305,10 +370,13 @@ or_aaa(#{ accumulator := A
 
 not_aa(#{ accumulator := A} = ES) when ?IS_FATE_BOOLEAN(A) ->
     ES#{ accumulator => (not A)}.
-    
+
+is_true_a(#{ accumulator := A} = ES) when ?IS_FATE_BOOLEAN(A) ->
+    pop(ES).
+
 
 %% ------------------------------------------------------
-%% Arguments
+%% Arguments & Accumulator (-stack)
 %% ------------------------------------------------------
 
 
@@ -323,6 +391,19 @@ push_arguments([A|As], Acc, Stack, ES ) ->
     push_arguments(As, A, [Acc, Stack], ES).
 
 
+pop(#{ accumulator := X, accumulator_stack := []} = ES) ->
+    {X, ES#{accumulator => ?FATE_VOID}};
+pop(#{ accumulator := X, accumulator_stack := [V|Stack]} = ES) ->
+    {X, ES#{ accumulator => V
+           , accumulator_stack := Stack
+           }}.
+
+dup(#{ accumulator := X, accumulator_stack := Stack} = ES) ->
+    ES#{ accumulator => X
+       , accumulator_stack := [X|Stack]}.
+
+%% ------------------------------------------------------
+%% BBs
 set_current_bb_index(BB, ES) ->
     ES#{ current_bb => BB }.
 
@@ -335,11 +416,14 @@ get_bb(BB, #{bbs := BBS}) ->
         Instrucitions -> Instrucitions
     end.
 
-get_trace(#{trace := T}) -> T.
-
 next_bb_index(#{ current_bb := BB}) ->
     %% TODO check BB + 1 exists.
     BB + 1.
+
+
+%% ------------------------------------------------------
+get_trace(#{trace := T}) -> T.
+
 
 push_return_address(#{ current_bb := BB
                      , current_function := Function
@@ -384,4 +468,8 @@ new_engine_state(Chain) ->
 
 %% TODO: real chain interface
 chain_get_contract(ContractAddress, #{ contracts :=  Contracts} = _Chain) ->
-    maps:get(ContractAddress, Contracts).
+    case maps:get(ContractAddress, Contracts, void) of
+        void -> throw({error, calling, ContractAddress});
+        C -> C
+    end.
+
