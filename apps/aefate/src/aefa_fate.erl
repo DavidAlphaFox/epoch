@@ -40,6 +40,9 @@ step([I|Is], EngineState0) ->
 
     end.
 
+%% ------------------------------------------------------
+%% Call/return instructions
+%% ------------------------------------------------------
 eval(return, EngineState) ->
     pop_call_stack(EngineState);
 eval({call_local, Function}, EngineState) ->
@@ -62,14 +65,59 @@ eval({tailcall_remote, Contract, Function}, EngineState) ->
     Signature = get_function_signature(Function, ES2),
     ok = check_signature(Signature, ES2),
     {jump, 0, ES2};
+
+%% ------------------------------------------------------
+%% Control flow instructions
+%% ------------------------------------------------------
 eval({jump, BB}, EngineState) ->
     {jump, BB, EngineState};
+
+%% ------------------------------------------------------
+%% Integer instructions
+%% ------------------------------------------------------
 eval(push_a_0, EngineState) ->
     {next, push_int(?MAKE_FATE_INTEGER(0), EngineState)};
 eval(inc_a_1_a, EngineState) ->
     {next, inc_acc(EngineState)};
 eval({add_a_i_a, X}, EngineState) ->
     {next, add_acc(X, EngineState)};
+
+%% ------------------------------------------------------
+%% Comparison instructions
+%% ------------------------------------------------------
+eval(lt_a_a_a, EngineState) ->
+    {next, lt_aaa(EngineState)};
+eval(gt_a_a_a, EngineState) ->
+    {next, gt_aaa(EngineState)};
+eval(elt_a_a_a, EngineState) ->
+    {next, elt_aaa(EngineState)};
+eval(egt_a_a_a, EngineState) ->
+    {next, egt_aaa(EngineState)};
+eval(eq_a_a_a, EngineState) ->
+    {next, eq_aaa(EngineState)};
+eval(neq_a_a_a, EngineState) ->
+    {next, neq_aaa(EngineState)};
+
+
+%% ------------------------------------------------------
+%% Boolean instructions
+%% ------------------------------------------------------
+eval(push_a_true, EngineState) ->
+    {next, push_bool(?FATE_TRUE, EngineState)};
+eval(push_a_false, EngineState) ->
+    {next, push_bool(?FATE_FALSE, EngineState)};
+eval(and_a_a_a, EngineState) ->
+    {next, and_aaa(EngineState)};
+eval(or_a_a_a, EngineState) ->
+    {next, or_aaa(EngineState)};
+eval(not_a_a, EngineState) ->
+    {next, not_aa(EngineState)};
+
+
+
+%% ------------------------------------------------------
+%% Other Instructions
+%% ------------------------------------------------------
 eval(nop, EngineState) ->
     {next, EngineState}.
 
@@ -174,11 +222,95 @@ jump(BB, ES) ->
     Instructions = current_bb(NewES),
     {Instructions, NewES}.
 
+%% ------------------------------------------------------
+%% Integer instructions
+%% ------------------------------------------------------
+
+
 push_int(I,
          #{ accumulator := X
           , accumulator_stack := Stack } = ES) when ?IS_FATE_INTEGER(I) ->
     ES#{ accumulator => I
        , accumulator_stack => [X|Stack]}.
+
+add_acc(X, #{accumulator := Y} = ES) when ?IS_FATE_INTEGER(X)
+                                          , ?IS_FATE_INTEGER(X) ->
+    ES#{accumulator := ?MAKE_FATE_INTEGER(?FATE_INTEGER_VALUE(X)
+                                          + ?FATE_INTEGER_VALUE(Y)
+                                         )}.
+
+inc_acc(#{accumulator := X} = ES) when ?IS_FATE_INTEGER(X) ->
+    ES#{accumulator := ?MAKE_FATE_INTEGER(?FATE_INTEGER_VALUE(X)+1)}.
+
+%% ------------------------------------------------------
+%% Comparison instructions
+%% ------------------------------------------------------
+lt_aaa(#{ accumulator := A
+        , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                     , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) < ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+gt_aaa(#{ accumulator := A
+        , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                     , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) > ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+elt_aaa(#{ accumulator := A
+        , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                     , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) =< ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+egt_aaa(#{ accumulator := A
+        , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                     , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) >= ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+eq_aaa(#{ accumulator := A
+        , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                     , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) =:= ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+neq_aaa(#{ accumulator := A
+        , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_INTEGER(A)
+                                                     , ?IS_FATE_INTEGER(B) ->
+    ES#{ accumulator => ?FATE_INTEGER_VALUE(A) =/= ?FATE_INTEGER_VALUE(B)
+       , accumulator_stack => Stack}.
+
+
+%% ------------------------------------------------------
+%% Boolean instructions
+%% ------------------------------------------------------
+push_bool(B,
+         #{ accumulator := A
+          , accumulator_stack := Stack } = ES) when ?IS_FATE_BOOLEAN(B) ->
+    ES#{ accumulator => B
+       , accumulator_stack => [A|Stack]}.
+
+and_aaa(#{ accumulator := A
+          , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_BOOLEAN(A)
+                                                       , ?IS_FATE_BOOLEAN(B) ->
+    ES#{ accumulator => (A and B)
+       , accumulator_stack => Stack}.
+
+or_aaa(#{ accumulator := A
+          , accumulator_stack := [B|Stack]} = ES) when ?IS_FATE_BOOLEAN(A)
+                                                       , ?IS_FATE_BOOLEAN(B) ->
+    ES#{ accumulator => (A or B)
+       , accumulator_stack => Stack}.
+
+not_aa(#{ accumulator := A} = ES) when ?IS_FATE_BOOLEAN(A) ->
+    ES#{ accumulator => (not A)}.
+    
+
+%% ------------------------------------------------------
+%% Arguments
+%% ------------------------------------------------------
+
 
 push_arguments(Args, #{ accumulator := X
                       , accumulator_stack := XS} = ES) ->
@@ -190,14 +322,6 @@ push_arguments([], Acc, Stack, ES) ->
 push_arguments([A|As], Acc, Stack, ES ) ->
     push_arguments(As, A, [Acc, Stack], ES).
 
-add_acc(X, #{accumulator := Y} = ES) when ?IS_FATE_INTEGER(X)
-                                          , ?IS_FATE_INTEGER(X) ->
-    ES#{accumulator := ?MAKE_FATE_INTEGER(?FATE_INTEGER_VALUE(X)
-                                          + ?FATE_INTEGER_VALUE(Y)
-                                         )}.
-
-inc_acc(#{accumulator := X} = ES) when ?IS_FATE_INTEGER(X) ->
-    ES#{accumulator := ?MAKE_FATE_INTEGER(?FATE_INTEGER_VALUE(X)+1)}.
 
 set_current_bb_index(BB, ES) ->
     ES#{ current_bb => BB }.

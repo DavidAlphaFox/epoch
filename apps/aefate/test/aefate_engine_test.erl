@@ -8,42 +8,56 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-excute_test() ->
-    Chain = setup_chain(),
-    #{accumulator := 42} =
-        aefa_fate:run(
-          make_call(<<"test">>, <<"id">>, [42]),
-          Chain),
+control_flow_test_() ->
+    make_calls(control_flow()).
 
-    Res2 = aefa_fate:run(
-             make_call(<<"test">>, <<"jumps">>, []),
-             Chain),
-    io:format("Res2 ~p~n", [Res2]),
-    #{accumulator := 2} =
-        aefa_fate:run(
-          make_call(<<"test">>, <<"inc">>, [0]),
-          Chain),
-    #{accumulator := 4} =
-        aefa_fate:run(
-          make_call(<<"test">>, <<"call">>, [0]),
-          Chain),
-    #{accumulator := 3} =
-        aefa_fate:run(
-          make_call(<<"test">>, <<"tailcall">>, [0]),
-          Chain),
-    #{accumulator := 6} =
-        aefa_fate:run(
-          make_call(<<"remote">>, <<"add_five">>, [1]),
-          Chain),
-    #{accumulator := 10} =
-        aefa_fate:run(
-          make_call(<<"test">>, <<"remote_call">>, [4]),
-          Chain),
-    #{accumulator := 9} =
-        aefa_fate:run(
-          make_call(<<"test">>, <<"remote_tailcall">>, [4]),
-          Chain),
-    ok.
+boolean_test_() ->
+    make_calls(booleans()).
+
+comp_test_() ->
+    make_calls(comps()).
+
+
+make_calls(ListOfCalls) ->
+    Chain = setup_chain(),
+    [{lists:flatten(io_lib:format("call(~p,~p,~p)->~p", [C,F,A,R])),
+      fun() ->
+              Call = make_call(C,F,A),
+              #{accumulator := Res} = aefa_fate:run(Call, Chain),
+              ?assertEqual(R, Res)
+
+      end}
+     || {C,F,A,R} <- ListOfCalls].
+
+
+
+control_flow() ->
+    [ {<<"test">>, <<"id">>, [42], 42}
+    , {<<"test">>, <<"jumps">>, [], 0}
+    , {<<"test">>, <<"inc">>, [0], 2}
+    , {<<"test">>, <<"call">>, [0], 4}
+    , {<<"test">>, <<"tailcall">>, [0], 3}
+    , {<<"remote">>, <<"add_five">>, [1], 6}
+    , {<<"test">>, <<"remote_call">>, [4],10}
+    , {<<"test">>, <<"remote_tailcall">>, [4],9}
+    ].
+
+booleans() ->
+    [ {<<"bool">>, <<"and">>, [true, true], true}
+    , {<<"bool">>, <<"and">>, [true, false], false}
+    , {<<"bool">>, <<"or">>,  [true, false], true}
+    , {<<"bool">>, <<"not">>,  [true], false}
+    , {<<"bool">>, <<"not">>,  [false], true}
+    ].
+
+comps() ->
+    [ {<<"comp">>, <<"lt">>, [1, 2], true}
+    , {<<"comp">>, <<"gt">>, [1, 2], false}
+    , {<<"comp">>, <<"elt">>,  [2, 2], true}
+    , {<<"comp">>, <<"egt">>,  [3, 2], true}
+    , {<<"comp">>, <<"eq">>,  [4, 4], true}
+    ].
+
 
 make_call(Contract, Function, Arguments) ->
     #{ contract  => Contract
@@ -104,6 +118,48 @@ setup_contracts() ->
                     , return]}]
              }
            ]
+     , <<"bool">> =>
+           [ {<<"and">>
+             , {[boolean, boolean], boolean}
+             , [ {0, [ and_a_a_a
+                     , return]}]}
+           , {<<"or">>
+             , {[boolean, boolean], boolean}
+             , [ {0, [ or_a_a_a
+                     , return]}]}
+           , {<<"not">>
+             , {[boolean, boolean], boolean}
+             , [ {0, [ not_a_a
+                     , return]}]}
+           ]
+
+     , <<"comp">> =>
+           [ {<<"lt">>
+             , {[integer, integer], boolean}
+             , [ {0, [ lt_a_a_a
+                     , return]}]}
+           ,  {<<"gt">>
+              , {[integer, integer], boolean}
+              , [ {0, [ gt_a_a_a
+                      , return]}]}
+           ,  {<<"egt">>
+              , {[integer, integer], boolean}
+              , [ {0, [ egt_a_a_a
+                      , return]}]}
+           ,  {<<"elt">>
+              , {[integer, integer], boolean}
+              , [ {0, [ elt_a_a_a
+                      , return]}]}
+           ,  {<<"eq">>
+              , {[integer, integer], boolean}
+              , [ {0, [ eq_a_a_a
+                      , return]}]}
+           ,  {<<"neq">>
+              , {[integer, integer], boolean}
+              , [ {0, [ neq_a_a_a
+                      , return]}]}
+           ]
+
        }.
 
                        

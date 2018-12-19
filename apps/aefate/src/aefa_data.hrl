@@ -63,6 +63,7 @@
 -define(IS_FATE_LIST(X), (is_list(X))).
 -define(IS_FATE_STRING(X), (is_binary(X))).
 -define(IS_FATE_MAP(X), (is_map(X))).
+-define(IS_FATE_BOOLEAN(X), is_boolean(X)).
 
 -define(FATE_INTEGER_VALUE(X), (X)).
 -define(FATE_LIST_VALUE(X), (X)).
